@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StationWiFi Lab | Railway Station WLAN Simulation & Comparison Tool</title>
+    <meta name="description" content="Simulation, design, and comparison tool for enterprise WLAN deployments in crowded railway stations. Compare Traditional Macrocells vs Modern Microcells.">
+    <!-- Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-icon">🚆</div>
+            <div class="brand-text">
+                <h1>StationWiFi Lab</h1>
+                <p>Railway Station WLAN Deployment & Performance Evaluation</p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <button id="btnSaveScenario" class="btn btn-secondary btn-sm" title="Save Scenario Configuration as JSON">
+                💾 Save JSON
+            </button>
+            <label class="btn btn-secondary btn-sm" title="Load Scenario from JSON" style="margin-bottom: 0;">
+                📂 Load JSON
+                <input type="file" id="inputFileScenario" accept=".json" style="display: none;">
+            </label>
+            <a href="/api/export.csv" class="btn btn-secondary btn-sm" title="Download Comparison CSV">
+                📊 Export CSV
+            </a>
+            <div class="dropdown" style="display: inline-block;">
+                <button id="btnExportNs3" class="btn btn-secondary btn-sm" title="Export NS-3 Scenario Script">
+                    🌐 Export NS-3
+                </button>
+            </div>
+            <button id="btnOpenReportModal" class="btn btn-success btn-sm" title="Generate Technical Report">
+                📑 Generate Report
+            </button>
+            <button id="themeToggle" class="theme-toggle" title="Toggle Light/Dark Theme">
+                🌙
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="app-container">
+
+        <!-- Controls Sidebar -->
+        <aside class="controls-panel">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">⚙️ Scenario Setup</span>
+                    <span class="badge" id="badgeScenario">Normal</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Traffic Scenario</label>
+                    <select id="selectScenario" class="form-select">
+                        <option value="normal">Normal Traffic (800 Users)</option>
+                        <option value="peak">Peak Rush Hour (2,000 Users)</option>
+                        <option value="train_burst">Train Arrival Burst (Platform Spike)</option>
+                        <option value="off_peak">Off-Peak Night (200 Users)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Passenger Concurrency</span>
+                        <span class="form-value" id="valUsers">800</span>
+                    </div>
+                    <input type="range" id="rangeUsers" class="range-slider" min="100" max="2500" step="50" value="800">
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Station Backhaul (Gbps)</span>
+                        <span class="form-value" id="valBackhaul">2.0</span>
+                    </div>
+                    <input type="range" id="rangeBackhaul" class="range-slider" min="0.5" max="10.0" step="0.5" value="2.0">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">AP Placement Strategy</label>
+                    <select id="selectPlacement" class="form-select">
+                        <option value="default">Engineered Default Layout</option>
+                        <option value="kmeans">K-Means Density-Weighted Placement</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Configuration Parameters -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">📡 RF Parameters</span>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Config A Tx Power (dBm)</span>
+                        <span class="form-value" id="valTxPowerA">20</span>
+                    </div>
+                    <input type="range" id="rangeTxPowerA" class="range-slider" min="10" max="24" step="1" value="20">
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Config B Tx Power (dBm)</span>
+                        <span class="form-value" id="valTxPowerB">12</span>
+                    </div>
+                    <input type="range" id="rangeTxPowerB" class="range-slider" min="6" max="18" step="1" value="12">
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Monte-Carlo Trials</span>
+                        <span class="form-value" id="valTrials">25</span>
+                    </div>
+                    <input type="range" id="rangeTrials" class="range-slider" min="5" max="50" step="5" value="25">
+                </div>
+
+                <div class="form-group">
+                    <div class="form-label">
+                        <span>Random Seed (Reproducibility)</span>
+                    </div>
+                    <input type="number" id="inputSeed" class="form-control" value="42" min="1" max="999999">
+                </div>
+
+                <button id="btnRunSimulation" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 0.5rem; padding: 0.75rem;">
+                    🚀 Run Simulation
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Visualizer & Results Content -->
+        <main class="main-view">
+
+            <!-- Background Job Progress Bar -->
+            <div id="progressBanner" class="progress-banner">
+                <div class="progress-header">
+                    <span id="progressStatusText">Simulating Monte-Carlo runs...</span>
+                    <span id="progressPercentText">0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="progressBarFill" class="progress-bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- Floorplan Canvas View -->
+            <section class="card" style="padding: 0; overflow: hidden;">
+                <div class="canvas-toolbar">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 0.85rem; font-weight: 700;">🗺️ Floor Plan:</span>
+                        <div class="tab-group" style="margin-bottom: 0;">
+                            <button class="tab-btn active" data-view="config_b">Config B (36 APs)</button>
+                            <button class="tab-btn" data-view="config_a">Config A (12 APs)</button>
+                            <button class="tab-btn" data-view="side_by_side">Side-by-Side</button>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">Heatmap:</span>
+                            <select id="selectHeatmapMode" class="form-select" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; width: auto;">
+                                <option value="rssi">RSSI (Signal)</option>
+                                <option value="sinr">SINR (Interference)</option>
+                                <option value="off">Off (Layout Only)</option>
+                            </select>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">Opacity:</span>
+                            <input type="range" id="rangeHeatmapOpacity" min="0.1" max="0.9" step="0.05" value="0.55" style="width: 70px;">
+                        </div>
+
+                        <button id="btnResetAPs" class="btn btn-outline btn-sm" title="Reset AP Coordinates">
+                            ↺ Reset APs
+                        </button>
+                    </div>
+                </div>
+
+                <div class="canvas-wrapper">
+                    <canvas id="floorplanCanvas"></canvas>
+                    <div class="canvas-legend">
+                        <div class="legend-item"><div class="legend-color" style="background: #22c55e;"></div> Excellent (&gt; -60 dBm)</div>
+                        <div class="legend-item"><div class="legend-color" style="background: #eab308;"></div> Good (-67 dBm)</div>
+                        <div class="legend-item"><div class="legend-color" style="background: #f97316;"></div> Fair (-75 dBm)</div>
+                        <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div> Poor / Dead Zone</div>
+                        <div class="legend-item" style="margin-left: 0.5rem;"><span style="color: #60a5fa;">●</span> Draggable AP Node</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Executive KPI Scorecard Grid -->
+            <section class="scorecard-grid">
+                <div class="kpi-card">
+                    <div class="kpi-title">Worst 5% Throughput (p5)</div>
+                    <div class="kpi-values">
+                        <span class="kpi-val-a" id="kpiP5A">0.24 Mbps</span>
+                        <span class="kpi-val-b" id="kpiP5B">1.28 Mbps</span>
+                    </div>
+                    <span class="kpi-winner winner-b" id="badgeP5Winner">Config B (+433%)</span>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-title">Mean Round-Trip Latency</div>
+                    <div class="kpi-values">
+                        <span class="kpi-val-a" id="kpiLatA">48.2 ms</span>
+                        <span class="kpi-val-b" id="kpiLatB">14.1 ms</span>
+                    </div>
+                    <span class="kpi-winner winner-b" id="badgeLatWinner">Config B (71% lower)</span>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-title">Packet Loss Rate</div>
+                    <div class="kpi-values">
+                        <span class="kpi-val-a" id="kpiLossA">6.8%</span>
+                        <span class="kpi-val-b" id="kpiLossB">0.9%</span>
+                    </div>
+                    <span class="kpi-winner winner-b" id="badgeLossWinner">Config B Winner</span>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-title">Jain's Fairness Index</div>
+                    <div class="kpi-values">
+                        <span class="kpi-val-a" id="kpiFairA">0.512</span>
+                        <span class="kpi-val-b" id="kpiFairB">0.894</span>
+                    </div>
+                    <span class="kpi-winner winner-b" id="badgeFairWinner">Config B (+74%)</span>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-title">Total CapEx Cost</div>
+                    <div class="kpi-values">
+                        <span class="kpi-val-a" id="kpiCostA">$8,400</span>
+                        <span class="kpi-val-b" id="kpiCostB">$19,080</span>
+                    </div>
+                    <span class="kpi-winner winner-a" id="badgeCostWinner">Config A (Lower CapEx)</span>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-title">Cost / Supported User</div>
+                    <div class="kpi-values">
+                        <span class="kpi-val-a" id="kpiCostUserA">$16.80</span>
+                        <span class="kpi-val-b" id="kpiCostUserB">$9.80</span>
+                    </div>
+                    <span class="kpi-winner winner-b" id="badgeCostUserWinner">Config B (Better ROI)</span>
+                </div>
+            </section>
+
+            <!-- Automated Findings Card -->
+            <section class="findings-card">
+                <div class="findings-title">
+                    💡 Automated Findings & Engineering Recommendation
+                </div>
+                <ul class="findings-list" id="listFindings">
+                    <li>Config B improves worst-user throughput by +433% through microcell spatial reuse and 5 GHz band steering.</li>
+                    <li>Airtime contention on 2.4 GHz collapses Config A performance during high passenger volumes.</li>
+                    <li>Config B load balancing keeps maximum AP client queues under 45 clients, preventing bufferbloat.</li>
+                </ul>
+                <div class="recommendation-box" id="boxRecommendation">
+                    RECOMMENDATION: Deploy CONFIG B (High-Density Microcell). Essential for peak passenger capacity and train arrival surge handling.
+                </div>
+            </section>
+
+            <!-- Performance Charts Grid -->
+            <section class="charts-grid">
+                <!-- Throughput Comparison Bar Chart -->
+                <div class="chart-card">
+                    <div class="chart-card-header">📊 Throughput Comparison: Average vs Worst 5% (p5)</div>
+                    <div class="chart-card-body">
+                        <canvas id="chartThroughput"></canvas>
+                    </div>
+                </div>
+
+                <!-- 60-Minute Dynamic Timeline -->
+                <div class="chart-card">
+                    <div class="chart-card-header">📈 60-Minute Latency Timeline & Train Burst Event</div>
+                    <div class="chart-card-body">
+                        <canvas id="chartTimeline"></canvas>
+                    </div>
+                </div>
+
+                <!-- RSSI & SINR Histogram / CDF -->
+                <div class="chart-card">
+                    <div class="chart-card-header">📶 Signal Strength (RSSI) & SINR Distributions</div>
+                    <div class="chart-card-body">
+                        <canvas id="chartRfDist"></canvas>
+                    </div>
+                </div>
+
+                <!-- Radar Comparison -->
+                <div class="chart-card">
+                    <div class="chart-card-header">🕸️ Multi-Metric WLAN Radar Evaluation</div>
+                    <div class="chart-card-body">
+                        <canvas id="chartRadar"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detailed Comparison Table -->
+            <section class="table-card">
+                <div class="card-header" style="border: none; padding-left: 0; padding-right: 0;">
+                    <span class="card-title">📋 Comprehensive Architecture Comparison Table</span>
+                </div>
+                <table class="data-table" id="comparisonTable">
+                    <thead>
+                        <tr>
+                            <th>Performance Metric</th>
+                            <th>Config A (12 Macrocells)</th>
+                            <th>Config B (36 Microcells)</th>
+                            <th>Delta / Winner</th>
+                            <th>Unit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Report Generation Modal -->
+    <div id="modalReport" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">📄 Auto-Generated Comparative Technical Report</h3>
+                <button id="btnCloseReportModal" class="modal-close">&times;</button>
+            </div>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                A publication-grade technical report has been compiled with IEEE 802.11 mathematical formulations, floorplan placement diagrams, Monte-Carlo statistics, sensitivity analysis curves, and a real-world validation guide.
+            </p>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
+                <button id="btnDownloadHtmlReport" class="btn btn-primary" style="flex: 1; justify-content: center;">
+                    🌐 Open Interactive HTML Report
+                </button>
+                <button id="btnDownloadPdfReport" class="btn btn-secondary" style="flex: 1; justify-content: center;">
+                    📑 Download PDF Report
+                </button>
+            </div>
+            <div id="reportStatusMessage" style="font-size: 0.85rem; color: var(--brand-accent); text-align: center;"></div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

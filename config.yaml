@@ -1,0 +1,225 @@
+# StationWiFi Lab Configuration
+# Railway Station WLAN Simulation & Comparison Tool
+
+station:
+  name: "Central Railway Junction"
+  width: 200.0   # Concourse width in meters
+  height: 60.0   # Concourse height in meters
+  backhaul_gbps: 2.0  # Shared fibre backhaul uplink in Gbps
+
+zones:
+  - id: "entrance_hall"
+    name: "Main Entrance Hall"
+    x: 0
+    y: 0
+    width: 40
+    height: 60
+    density_weight: 0.20
+    color: "#3b82f6"
+
+  - id: "ticket_counters"
+    name: "Ticket Booking & Queuing"
+    x: 40
+    y: 40
+    width: 40
+    height: 20
+    density_weight: 0.15
+    color: "#8b5cf6"
+
+  - id: "concourse_central"
+    name: "Central Waiting Concourse"
+    x: 40
+    y: 0
+    width: 80
+    height: 40
+    density_weight: 0.25
+    color: "#06b6d4"
+
+  - id: "food_court"
+    name: "Food Court & Retail"
+    x: 120
+    y: 35
+    width: 80
+    height: 25
+    density_weight: 0.15
+    color: "#f59e0b"
+
+  - id: "executive_lounge"
+    name: "VIP / AC Waiting Lounge"
+    x: 120
+    y: 0
+    width: 80
+    height: 35
+    density_weight: 0.10
+    color: "#10b981"
+
+  - id: "platform_1"
+    name: "Platform 1 & 2"
+    x: 0
+    y: -25
+    width: 200
+    height: 20
+    density_weight: 0.075
+    color: "#64748b"
+
+  - id: "platform_2"
+    name: "Platform 3 & 4"
+    x: 0
+    y: -50
+    width: 200
+    height: 20
+    density_weight: 0.075
+    color: "#475569"
+
+obstacles:
+  # Internal concrete walls
+  - type: "wall"
+    name: "Ticket Counter Partition"
+    x1: 40
+    y1: 40
+    x2: 80
+    y2: 40
+    attenuation_db: 10.0
+
+  - type: "wall"
+    name: "Food Court Enclosure"
+    x1: 120
+    y1: 0
+    x2: 120
+    y2: 60
+    attenuation_db: 8.0
+
+  # Heavy support pillars (represented as point/small segment obstacles with high shadow loss)
+  - type: "pillar"
+    x: 40
+    y: 20
+    radius: 1.5
+    attenuation_db: 6.0
+  - type: "pillar"
+    x: 80
+    y: 20
+    radius: 1.5
+    attenuation_db: 6.0
+  - type: "pillar"
+    x: 120
+    y: 20
+    radius: 1.5
+    attenuation_db: 6.0
+  - type: "pillar"
+    x: 160
+    y: 20
+    radius: 1.5
+    attenuation_db: 6.0
+
+passengers:
+  scenarios:
+    off_peak:
+      users: 200
+      label: "Off-Peak (Night / Early Morning)"
+      burst_platform: null
+      burst_multiplier: 1.0
+    normal:
+      users: 800
+      label: "Normal Traffic (Mid-day)"
+      burst_platform: null
+      burst_multiplier: 1.0
+    peak:
+      users: 2000
+      label: "Peak Rush Hour (Evening)"
+      burst_platform: null
+      burst_multiplier: 1.0
+    train_burst:
+      users: 1500
+      label: "Train Arrival Burst (Platform 3 & 4 spike)"
+      burst_platform: "platform_2"
+      burst_multiplier: 3.0
+
+  device_mix:
+    dual_band_ratio: 0.70    # Dual band (2.4 GHz + 5 GHz capable)
+    five_ghz_only_ratio: 0.20 # Modern 5 GHz preferred
+    legacy_24_only_ratio: 0.10 # Legacy 2.4 GHz only
+
+  traffic:
+    avg_demand_mbps: 1.5
+    profiles:
+      video_streaming:
+        share: 0.40
+        rate_mbps: 3.0
+        packet_size_bytes: 1400
+        latency_tolerance_ms: 100
+      web_browsing:
+        share: 0.35
+        rate_mbps: 1.0
+        packet_size_bytes: 1200
+        latency_tolerance_ms: 150
+      voip_call:
+        share: 0.10
+        rate_mbps: 0.1
+        packet_size_bytes: 200
+        latency_tolerance_ms: 40
+      messaging_idle:
+        share: 0.15
+        rate_mbps: 0.05
+        packet_size_bytes: 300
+        latency_tolerance_ms: 300
+
+propagation:
+  d0: 1.0                # Reference distance in meters
+  path_loss_exp_24: 3.0  # Log-distance path loss exponent for 2.4 GHz
+  path_loss_exp_5: 3.3   # Log-distance path loss exponent for 5 GHz
+  shadowing_sigma_db: 6.5 # Standard deviation for log-normal shadowing
+  body_loss_db_per_density: 4.0 # Body loss penalty for crowded concourses
+  noise_floor_24_dbm: -95.0
+  noise_floor_5_dbm: -92.0
+  adjacent_channel_rejection_db: 25.0
+
+mac:
+  mac_efficiency: 0.60
+  cw_min: 15
+  cw_max: 1023
+  slot_time_us: 9
+  sifs_us: 16
+  max_retries: 7
+
+configurations:
+  config_a:
+    name: "Config A: Low-Density High-Power (Traditional)"
+    description: "12 high-power APs (20 dBm), omni antennas, dual-band (heavy 2.4 GHz load), wide cells, RSSI-only association"
+    ap_count: 12
+    tx_power_dbm: 20.0
+    antenna_gain_dbi: 3.0
+    antenna_type: "omni"
+    band_preference: "2.4GHz"
+    band_steering: false
+    load_balancing: false
+    max_clients_per_ap: 250
+    channel_width_24_mhz: 20
+    channel_width_5_mhz: 40
+    supported_channels_24: [1, 6, 11]
+    supported_channels_5: [36, 40, 44, 48]
+    cost_per_ap_usd: 450
+    cabling_cost_per_ap_usd: 250
+
+  config_b:
+    name: "Config B: High-Density Low-Power Microcell (Modern)"
+    description: "36 microcell APs (12 dBm), directional/sector on platforms, 5 GHz-first, band steering, load balancing"
+    ap_count: 36
+    tx_power_dbm: 12.0
+    antenna_gain_dbi: 5.0
+    antenna_type: "sector"
+    band_preference: "5GHz"
+    band_steering: true
+    load_balancing: true
+    max_clients_per_ap: 45
+    channel_width_24_mhz: 20
+    channel_width_5_mhz: 40
+    supported_channels_24: [1, 6, 11]
+    supported_channels_5: [36, 44, 52, 60, 100, 108, 116, 132, 140, 149, 157]
+    cost_per_ap_usd: 350
+    cabling_cost_per_ap_usd: 180
+
+simulation:
+  monte_carlo_trials: 30
+  random_seed: 42
+  time_series_duration_min: 60
+  time_step_min: 1
